@@ -7,7 +7,7 @@ describe('apiProxy', function() {
 
   describe('middleware', function () {
 
-    var dataAdater, proxy, requestFromClient, responseToClient, requestToApi;
+    var dataAdapter, proxy, requestFromClient, responseToClient, requestToApi;
 
     beforeEach(function () {
       requestToApi = sinon.stub();
@@ -16,13 +16,13 @@ describe('apiProxy', function() {
         headers: { 'host': 'any.host.name', },
         connection: {}
       },
-      dataAdater = { request: requestToApi },
-      proxy = apiProxy(dataAdater),
+      dataAdapter = { request: requestToApi },
+      proxy = apiProxy(dataAdapter),
       responseToClient = { status: sinon.spy(), json: sinon.spy() };
     });
 
     it('should pass through the status code', function () {
-      dataAdater.request.yields(null, {status: 200}, {});
+      dataAdapter.request.yields(null, {status: 200}, {});
 
       proxy(requestFromClient, responseToClient);
 
@@ -31,7 +31,7 @@ describe('apiProxy', function() {
 
     it('should pass through the body', function () {
       var body = { what: 'ever' };
-      dataAdater.request.yields(null, {status: 200}, body);
+      dataAdapter.request.yields(null, {status: 200}, body);
 
       proxy(requestFromClient, responseToClient);
 
