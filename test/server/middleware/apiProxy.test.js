@@ -14,15 +14,16 @@ describe('apiProxy', function() {
       requestFromClient = {
         path: '/',
         headers: { 'host': 'any.host.name', },
-        connection: {}
+        connection: {},
+        get: sinon.stub()
       },
       dataAdapter = { request: requestToApi },
       proxy = apiProxy(dataAdapter),
-      responseToClient = { status: sinon.spy(), json: sinon.spy() };
+      responseToClient = { status: sinon.spy(), json: sinon.spy(), setHeader: sinon.spy() };
     });
 
     it('should pass through the status code', function () {
-      dataAdapter.request.yields(null, {status: 200}, {});
+      dataAdapter.request.yields(null, {status: 200, headers: {}}, {});
 
       proxy(requestFromClient, responseToClient);
 
@@ -31,7 +32,7 @@ describe('apiProxy', function() {
 
     it('should pass through the body', function () {
       var body = { what: 'ever' };
-      dataAdapter.request.yields(null, {status: 200}, body);
+      dataAdapter.request.yields(null, {status: 200, headers: {}}, body);
 
       proxy(requestFromClient, responseToClient);
 
@@ -72,12 +73,70 @@ describe('apiProxy', function() {
     });
 
 
-   it('should not pass through the host header', function () {
+    it('should not pass through the host header', function () {
       proxy(requestFromClient, responseToClient);
       outgoingHeaders = requestToApi.firstCall.args[1].headers;
       outgoingHeaders.should.not.contain.key('host');
-   });
+    });
 
+    describe('cookie forwarding', function () {
+      it('should pass through prefixed cookies for the default api', function () {
+        var cookiesReturnedByApi = [
+            'FooBar=SomeCookieData; path=/',
+            'BarFoo=OtherCookieData; path=/'
+          ],
+          expecetedEncodedCookies = [
+            'default/-/FooBar=' + encodeURIComponent('FooBar=SomeCookieData; path=/'),
+            'default/-/BarFoo=' + encodeURIComponent('BarFoo=OtherCookieData; path=/')
+          ];
+
+
+        dataAdapter.request.yields(null, { headers: { 'set-cookie': cookiesReturnedByApi } });
+        proxy(requestFromClient, responseToClient);
+
+        responseToClient.setHeader.should.have.been.calledOnce;
+        responseToClient.setHeader.should.have.been.calledWith('set-cookie', expecetedEncodedCookies)
+      });
+
+      it('should pass through prefixed cookies', function () {
+        var cookiesReturnedByApi = [ 'FooBar=SomeCookieData; path=/' ],
+          expecetedEncodedCookies = [
+            'apiName/-/FooBar=' + encodeURIComponent('FooBar=SomeCookieData; path=/')
+          ];
+
+        dataAdapter.request.yields(null, { headers: { 'set-cookie': cookiesReturnedByApi } });
+        requestFromClient.path = '/apiName/-/';
+        proxy(requestFromClient, responseToClient);
+
+        responseToClient.setHeader.should.have.been.calledOnce;
+        responseToClient.setHeader.should.have.been.calledWith('set-cookie', expecetedEncodedCookies)
+      });
+
+      it('should pass through the cookies from client to the correct api host', function () {
+        var encodedClientCookies =
+          'apiName/-/FooBar=' + encodeURIComponent('FooBar=SomeCookieData; path=/') +
+          '; ' +
+          'otherApi/-/BarFoo=' + encodeURIComponent('BarFoo=OtherCookieData; path=/');
+
+        requestFromClient.get.withArgs('cookie').returns(encodedClientCookies);
+
+        requestFromClient.path = '/apiName/-/';
+        proxy(requestFromClient, responseToClient);
+        dataAdapter.request.should.have.been.calledWithMatch(requestFromClient, {headers: {cookie: ['FooBar=SomeCookieData; path=/']}});
+
+        requestFromClient.path = '/otherApi/-/';
+        proxy(requestFromClient, responseToClient);
+        dataAdapter.request.should.have.been.calledWithMatch(requestFromClient, {headers: {cookie: ['BarFoo=OtherCookieData; path=/']}});
+      });
+
+      it('should pass through the cookies from client to the default api host', function () {
+        requestFromClient.get.withArgs('cookie').returns('default/-/FooBar=' + encodeURIComponent('FooBar=SomeCookieData; path=/'));
+        proxy(requestFromClient, responseToClient);
+
+        dataAdapter.request.should.have.been.calledOnce;
+        dataAdapter.request.should.have.been.calledWithMatch(requestFromClient, {headers: {cookie: ['FooBar=SomeCookieData; path=/']}})
+      });
+    });
   });
 
   describe('getApiPath', function() {
