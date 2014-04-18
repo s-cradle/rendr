@@ -12,7 +12,8 @@ var _ = require('underscore'),
     $ = (typeof window !== 'undefined' && window.$) || require('jquery'),
     extractParamNamesRe = /:(\w+)/g,
     plusRe = /\+/g,
-    firstRender = true,
+    //firstRender = true,
+    firstRender = false,
     defaultRootPath = '';
 
 Backbone.$ = $;

@@ -19,9 +19,12 @@ ViewEngine.prototype.render = function render(viewPath, data, callback) {
   data.locals = data.locals || {};
   app = data.app;
   layoutData = _.extend({}, data, {
-    body: this.getViewHtml(viewPath, data.locals, app),
-    appData: app.toJSON(),
-    bootstrappedData: this.getBootstrappedData(data.locals, app),
+    //body: this.getViewHtml(viewPath, data.locals, app),
+    body: '',
+    //appData: app.toJSON(),
+    appData: {title: ''},
+    //bootstrappedData: this.getBootstrappedData(data.locals, app),
+    bootstrappedData: {},
     _app: app
   });
   this.renderWithLayout(layoutData, app, callback);
