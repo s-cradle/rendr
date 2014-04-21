@@ -144,6 +144,7 @@ syncer.getUrl = function getUrl(url, clientPrefix, params) {
   return this.interpolateParams(this, url, params);
 };
 
+/*
 syncer.formatClientUrl = function(url, api) {
   var prefix = this.app.get('apiPath') || '/api';
   if (api) {
@@ -152,6 +153,12 @@ syncer.formatClientUrl = function(url, api) {
   prefix += '/-';
   return prefix + url;
 };
+*/
+
+syncer.formatClientUrl = function(url, api) {
+  // Don't append api prefix for SPA
+  return url;
+}
 
 /**
  * This is used to fire off a 'fetch', compare the results to the data we have,
