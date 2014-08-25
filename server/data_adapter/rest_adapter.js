@@ -128,7 +128,7 @@ RestAdapter.prototype.apiDefaults = function(api, req) {
 
   // Add a default UserAgent, so some servers don't reject our request.
   if (api.headers['User-Agent'] == null) {
-    api.headers['User-Agent'] = req.headers['user-agent'] || this.options.userAgent;
+    api.headers['User-Agent'] = (req.headers && req.headers['user-agent']) || this.options.userAgent;
   }
 
   // make it json, but only if content-type is empty or 'application/json'
