@@ -19,7 +19,7 @@
     "express": "~3",
     "sanitizer": "~0.1",
     "request": "~2.33.0",
-    "debug": "<4"
+    "debug": "~3.2.5"
   },
   "devDependencies": {
     "mocha": "*",
