@@ -1,16 +1,15 @@
 var should = require('chai').should(),
     sinon = require('sinon'),
-    ViewEngine = require('../../server/viewEngine'),
-    BaseView = require('../../shared/base/view'),
     BaseModel = require('../../shared/base/model'),
     BaseCollection = require('../../shared/base/collection'),
+    ViewEngine = require('../../server/viewEngine'),
     App = require('../../shared/app');
 
 describe('ViewEngine', function() {
-  var app, viewEngine;
+  var app, viewEngine, BaseView;
 
   beforeEach(function() {
-
+    BaseView = require('../../shared/base/view');
     viewEngine = new ViewEngine;
 
     function layoutTemplate(locals) {
@@ -106,6 +105,24 @@ describe('ViewEngine', function() {
         data = viewEngine.getBootstrappedData(locals, app);
 
       data.should.deep.equal({});
+    });
+  });
+
+  describe('getBaseLayoutName', function() {
+    context('a baseLayoutName is provided', function() {
+      it('it should return the value of baseLayoutName', function() {
+        app = {options: {baseLayoutName: 'myLayout'}};
+        var baseLayoutName = viewEngine.getBaseLayoutName(app);
+        baseLayoutName.should.be.deep.equal('myLayout');
+      });
+    });
+
+    context('a baseLayoutName is provided', function() {
+      it('it should return __layout', function() {
+        app = {options: {baseLayoutName: undefined}};
+        var baseLayoutName = viewEngine.getBaseLayoutName(app);
+        baseLayoutName.should.be.deep.equal('__layout');
+      });
     });
   });
 });

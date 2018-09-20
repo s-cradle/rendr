@@ -9,9 +9,11 @@ if (!isServer) {
   Backbone.$ = window.$ || require('jquery');
 }
 
-BaseCollection = Super.extend({
+var BaseCollection = Super.extend({
 
   model: BaseModel,
+  params: undefined,
+  meta: undefined,
 
   /**
    * Provide the ability to set default params for every 'fetch' call.
@@ -101,9 +103,11 @@ BaseCollection = Super.extend({
     options = options || {};
 
     // Each time new models are fetched, store the params used.
-    options.data = options.data || {};
-    _.defaults(options.data, this.defaultParams || {});
-    this.params = options.data;
+    if (options.data) {
+      _.defaults(options.data, this.defaultParams || {});
+      this.params = options.data;
+    }
+
     return Super.prototype.fetch.apply(this, arguments);
   },
 

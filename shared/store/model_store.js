@@ -8,33 +8,45 @@ function ModelStore() {
 }
 
 _.extend(ModelStore.prototype, Super.prototype, {
-  set: function(model) {
-    var id, key, modelName;
+  expireSeconds: null,
 
-    id = model.get(model.idAttribute);
+  set: function(model) {
+    var key, modelName;
+
     modelName = this.modelUtils.modelName(model.constructor);
     if (modelName == null) {
       throw new Error('Undefined modelName for model');
     }
-    key = this._getModelStoreKey(modelName, id);
 
-    return Super.prototype.set.call(this, key, model, null);
+    key = this._getModelStoreKey(modelName, model.id);
+
+    // Make sure we have a fully parsed model before we store the attributes
+    model.parse(model.attributes);
+
+    return Super.prototype.set.call(this, key, model, this.expireSeconds);
   },
 
-  get: function(modelName, id, returnModelInstance) {
+  get: function(modelName, id) {
     var key, model;
 
-    if (returnModelInstance == null) {
-      returnModelInstance = false;
-    }
     key = this._getModelStoreKey(modelName, id);
-    model = Super.prototype.get.call(this, key);
-    if (model) {
-      if (returnModelInstance) {
-        return model;
-      } else {
-        return model.toJSON();
-      }
+    return Super.prototype.get.call(this, key);
+  },
+
+  clear: function(modelName, id) {
+    if (modelName && id) {
+      var key = this._getModelStoreKey(modelName, id);
+      return Super.prototype.clear.call(this, key);
+    } else if (modelName && !id) {
+      var cachedItems = this._getCachedItemsByModel(modelName),
+        self = this,
+        modelStoreKey;
+        _.each(cachedItems, function (item) {
+          modelStoreKey = self._getModelStoreKey(modelName, item.value.id);
+          Super.prototype.clear.call(self, modelStoreKey);
+        });
+    } else {
+      return Super.prototype.clear.call(this, null);
     }
   },
 
@@ -54,8 +66,15 @@ _.extend(ModelStore.prototype, Super.prototype, {
     });
 
     if (foundKey) {
-      return this.cache[foundKey].value.toJSON();
+      return this.cache[foundKey].value;
     }
+  },
+
+  _getCachedItemsByModel:function(modelName) {
+    var prefix = this._formatKey(this._keyPrefix(modelName));
+    return _.filter(this.cache, function(val, key) {
+      return startsWith(key, prefix);
+    });
   },
 
   _formatKey: function(key) {

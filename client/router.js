@@ -3,27 +3,44 @@
  * we need to pretend that this code is pure commonjs
  * means no AMD-style require calls
  */
-var requireAMD = require;
-
 var _ = require('underscore'),
     Backbone = require('backbone'),
     BaseRouter = require('../shared/base/router'),
     BaseView = require('../shared/base/view'),
-    $ = (typeof window !== 'undefined' && window.$) || require('jquery'),
+    isServer = (typeof window === 'undefined'),
     extractParamNamesRe = /:(\w+)/g,
     plusRe = /\+/g,
     firstRender = true,
     defaultRootPath = '';
 
-Backbone.$ = $;
-
-function noop() {}
+if (!isServer) {
+  Backbone.$ = window.$ || require('jquery');
+}
 
 module.exports = ClientRouter;
 
 function ClientRouter(options) {
   this._router = new Backbone.Router();
   BaseRouter.apply(this, arguments);
+
+  this.app = options.app;
+
+  var AppView = this.options.appViewClass;
+
+  // We do this here so that it's available in AppView initialization.
+  this.app.router = this;
+
+  this.on('route:add', this.addBackboneRoute, this);
+  this.on('action:start', this.trackAction, this);
+  this.app.on('reload', this.renderView, this);
+
+  this.appView = new AppView({
+    app: this.app
+  });
+
+  this.appView.render();
+  this.buildRoutes();
+  this.initialize(options);
 }
 
 /**
@@ -53,28 +70,7 @@ ClientRouter.prototype._router = null;
  */
 ClientRouter.prototype.reverseRoutes = true;
 
-ClientRouter.prototype.initialize = function(options) {
-  this.app = options.app;
-
-  var AppView = this.options.appViewClass;
-
-  // We do this here so that it's available in AppView initialization.
-  this.app.router = this;
-
-  this.on('route:add', this.addBackboneRoute, this);
-  this.on('action:start', this.trackAction, this);
-  this.app.on('reload', this.renderView, this);
-
-  this.appView = new AppView({
-    app: this.app
-  });
-
-  this.appView.render();
-  this.buildRoutes();
-  this.postInitialize();
-};
-
-ClientRouter.prototype.postInitialize = noop;
+ClientRouter.prototype.initialize = _.noop;
 
 /**
  * Piggyback on adding new route definition events
@@ -109,7 +105,7 @@ ClientRouter.prototype.getHandler = function(action, pattern, route) {
 
     if (firstRender) {
       firstRender = false;
-      BaseView.attach(router.app, null, function(views) {
+      BaseView.getChildViews(router.app, null, function(views) {
         router.currentView = router.getMainView(views);
         router.trigger('action:end', route, true);
       });
@@ -126,17 +122,6 @@ ClientRouter.prototype.getHandler = function(action, pattern, route) {
       } else {
         if (!action) {
           throw new Error("Missing action \"" + route.action + "\" for controller \"" + route.controller + "\"");
-        } else if (typeof action == 'string') {
-          // in AMD environment action is the string containing path to the controller
-          // which will be loaded async (might be preloaded)
-          // Only used in AMD environment
-          requireAMD([action], function(controller) {
-            // check we have everything we need
-            if (typeof controller[route.action] != 'function') {
-              throw new Error("Missing action \"" + route.action + "\" for controller \"" + route.controller + "\"");
-            }
-            actionCall(controller[route.action], params);
-          });
         } else {
           actionCall(action, params);
         }
@@ -221,7 +206,7 @@ ClientRouter.prototype.redirectTo = function(path, options) {
 
   if (options.pushState === false) {
     // Do a full-page redirect.
-    window.location.href = path;
+    this.exitApp(path);
   } else {
     // Do a pushState navigation.
     hashParts = path.split('#');
@@ -239,6 +224,19 @@ ClientRouter.prototype.redirectTo = function(path, options) {
   }
 };
 
+ClientRouter.prototype.exitApp = function (path) {
+  var exitPath = this.noRelativePath(path);
+  window.location.href = exitPath;
+}
+
+ClientRouter.prototype.noRelativePath = function (path) {
+  //if path doesn't have a protocol and lacks a leading slash
+  if (/^[a-z]+:/i.test(path) === false && path.charAt(0) !== '/') {
+    path = '/' + path;
+  }
+  return path;
+}
+
 ClientRouter.prototype.handleErr = function(err, route) {
   this.trigger('action:error', err, route);
 }
@@ -254,7 +252,8 @@ ClientRouter.prototype.getRenderCallback = function(route) {
     }
 
     var defaults = this.defaultHandlerParams(viewPath, locals, route);
-    viewPath = defaults[0], locals = defaults[1];
+    viewPath = defaults[0];
+    locals = defaults[1];
 
     locals = locals || {};
     _.extend(locals, { fetch_summary: BaseView.extractFetchSummary(this.app.modelUtils, locals) });

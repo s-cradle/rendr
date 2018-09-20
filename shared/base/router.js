@@ -8,7 +8,6 @@ if (!isServer) {
   Backbone.$ = window.$ || require('jquery');
 }
 
-function noop() {}
 
 function stringRouteDefinitionToObject(element) {
   var parts = element.split('#');
@@ -34,7 +33,6 @@ function BaseRouter(options) {
   this.route = this.route.bind(this);
   this._routes = [];
   this._initOptions(options);
-  this.initialize(options);
 }
 
 _.extend(BaseRouter.prototype, Backbone.Events, {
@@ -55,7 +53,7 @@ _.extend(BaseRouter.prototype, Backbone.Events, {
 
   reverseRoutes: false,
 
-  initialize: noop,
+  initialize: _.noop,
 
   _initOptions: function(options) {
     var entryPath;
@@ -152,24 +150,39 @@ _.extend(BaseRouter.prototype, Backbone.Events, {
    * Method passed to routes file to build up routes definition.
    * Adds a single route definition.
    */
-  route: function(pattern) {
-    var realAction, action, definitions, handler, route, routeObj;
+  route: function(pattern, controller, options) {
+    var realAction, action, handler, route, routeObj, routerContext = this;
 
-    definitions = _.toArray(arguments).slice(1);
-    route = parseRouteDefinitions(definitions);
+    route = parseRouteDefinitions([controller, options]);
     realAction = this.getAction(route);
+
     if (isServer) {
       action = realAction;
     } else {
       action = function(params, callback) {
+        var self = this;
         var myLoadNumber = ++loadNumber;
         function next() {
           // To prevent race conditions we ensure that no future requests have been processed in the mean time.
           if (myLoadNumber === loadNumber) {
-            callback.apply(this, arguments);
+            callback.apply(self, arguments);
           }
         }
-        realAction.call(this, params, next);
+        // in AMD environment realAction is the string containing path to the controller
+        // which will be loaded async (might be preloaded)
+        // Only used in AMD environment
+        if (typeof realAction === 'string') {
+          routerContext._requireAMD([realAction], function(controller) {
+            // check we have everything we need
+            if (typeof controller[route.action] != 'function') {
+              throw new Error("Missing action \"" + route.action + "\" for controller \"" + route.controller + "\"");
+            }
+            controller[route.action].call(self, params, next);
+          });
+        }
+        else {
+          realAction.call(self, params, next);
+        }
       }
     }
 
@@ -179,10 +192,17 @@ _.extend(BaseRouter.prototype, Backbone.Events, {
 
     handler = this.getHandler(action, pattern, route);
     routeObj = [pattern, route, handler];
+
     this._routes.push(routeObj);
     this.trigger('route:add', routeObj);
+
     return routeObj;
   },
+
+  /**
+   * exposing for mocking in test
+   */
+  _requireAMD: require,
 
   /**
    * Support omitting view path; default it to ":controller/:action".
@@ -203,7 +223,7 @@ _.extend(BaseRouter.prototype, Backbone.Events, {
   /**
    * This is the method that renders the request.
    */
-  getHandler: noop
+  getHandler: _.noop
 });
 
 module.exports = BaseRouter;

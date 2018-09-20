@@ -6,6 +6,10 @@
 
 Rendr is a small library that allows you to run your [Backbone.js](http://backbonejs.org/) apps seamlessly on both the client and the server. Allow your web server to serve fully-formed HTML pages to any deep link of your app, while preserving the snappy feel of a traditional Backbone.js client-side MVC app.
 
+## Documentation
+
+The documentation website is: [rendrjs.github.io](http://rendrjs.github.io).  If you have any feedback or changes for the documentation please create an [issue](https://github.com/rendrjs/rendrjs.github.io/issues).  The documentation is easy to submit changes to as well!  Simply create a fork and use the Github Markdown editor to make and preview any changes, then open just open a Pull Request.
+
 ## Reporting problems and getting help
 
 Please use the [issue tracker][issues] to report bugs. For support with using
@@ -29,7 +33,7 @@ Our hypothesis is that there has to be a better way to build rich web apps today
 
 ## The Goals
 
-Rendr is intended to be a building block along the way to this envisionsed future of web apps that can be run on either side of the wire according to the needs of your application.
+Rendr is intended to be a building block along the way to this envisioned future of web apps that can be run on either side of the wire according to the needs of your application.
 
 Some specific design goals:
 
@@ -125,9 +129,9 @@ Inherits from `Backbone.Model`.
 
 ### `BaseAppView`
 
-Inherits for `BaseView`. You can change your main content container from this view by changing the `contentEl` key in the `options` object when extending `BaseAppView`
+Inherits from `BaseView`. You can change your main content container from this view by changing the `contentEl` key in the `options` object when extending `BaseAppView`
 
-```javascript
+```js
 var AppView = BaseAppView.extend({
   options : {
     contentEl : "#mainContent"
@@ -203,12 +207,12 @@ Either a ``dataAdapter`` or ``dataAdapterConfig`` must be present.
 
     **Default:** ``process.cwd() + '/'`` - Current working directory of the node process
 
-- ``errorHandler`` *Optional* Callback for [Express.js errors](http://expressjs.com/guide.html#error-handling).
+- ``errorHandler`` *Optional* Callback for [Express.js errors](http://expressjs.com/guide/error-handling).
 
    **Example** ``function (err, req, res, next) { }``
 
 
-- ``notFoundHandler`` *Optional* - Callback for [Express.js not found errors](http://expressjs.com/guide.html#error-handling)
+- ``notFoundHandler`` *Optional* - Callback for [Express.js not found errors](http://expressjs.com/guide/error-handling)
 
    **Example** ``function (req, res, next) { }``
 
@@ -230,7 +234,7 @@ This configuration is passed to the current DataAdapter, which by default is the
 
 **Simple**
 
-```
+```js
 var dataAdapterConfig = {
   host: 'api.github.com',
   protocol: 'https'
@@ -240,7 +244,7 @@ var dataAdapterConfig = {
 
 **Multiple**
 
-```
+```js
 var dataAdapterConfig = {
   'default': {
     host: 'api.github.com',
@@ -258,14 +262,13 @@ Example of how a Backbone model can be configured to select one of the DataAdapt
 
 *Note: This example assumes you are using the [RestAdapter](https://github.com/rendrjs/rendr/blob/master/server/data_adapter/rest_adapter.js).*
 
-````
+```js
 module.exports = Base.extend({
   url: '/repos/:owner/:name',
   api: 'travis-ci'
 });
 module.exports.id = 'Build';
-
-````
+```
 
 ### Adding middleware to Rendr's Express
 
@@ -273,20 +276,18 @@ module.exports.id = 'Build';
 You can optionally add any custom middleware that has to access `req.rendrApp` but should run before
 the Rendr routes by calling configure after createServer.
 
-```
-
+```js
 rendr.createServer(config);
 rendr.configure(function(expressApp) {
 
     expressApp.use(...)
 
 })
-
 ```
 
 ### Template Adapters
 
-Provides a way for Rendr to utilize custom html template engines.  Rendr's [ViewEngine](https://github.com/rendrjs/rendr/blob/master/server/viewEngine.js) will delegate to the [Template Adapter](https://github.com/rendrjs/rendr-handlebars/blob/master/index.js). You can build your own to provide your template engine of choice (i.e. Jade, Underscore templates, etc).
+Provides a way for Rendr to utilize custom html template engines (see also Template Engines section below).  Rendr's [ViewEngine](https://github.com/rendrjs/rendr/blob/master/server/viewEngine.js) will delegate to the [Template Adapter](https://github.com/rendrjs/rendr-handlebars/blob/master/index.js). You can build your own to provide your template engine of choice (i.e. Jade, Underscore templates, etc).
 
 ####Available Template Adapters
 
@@ -299,7 +300,7 @@ Provides a way for Rendr to utilize custom html template engines.  Rendr's [View
 
 You can tell Rendr which Template Adapter to use.  This represents the node-module that contains the adapter.
 
-````
+```js
 // /app/app.js
 
 module.exports = BaseApp.extend({
@@ -309,8 +310,44 @@ module.exports = BaseApp.extend({
 
 });
 
-````
+```
 
+### Template Engines
+
+While Template Adapters provide the layer of abstraction that allow you to use your favorite template engine in a Rendr app, the Template Engine option itself will tell the app which version to use exactly. 
+The default is set to be Handlebars, which is currently supported by the Rendr-handlebars adapter until version 2.0.0.
+**When setting up your Rendr app, you'll need to add your Template Engine of choice to package.json.**
+ 
+E.g.
+ 
+```js
+// /package.json
+
+"dependencies": {
+  ...
+  "express": "^4.12.0",
+  "handlebars": "^2.0.0"
+  "qs2": "~0.6.6",
+  ...
+},
+  
+```
+
+####Using Custom Template Engines
+
+You can tell Rendr which Template Engine to use.  This represents the node-module that contains the engine.
+
+```js
+// /app/app.js
+
+module.exports = BaseApp.extend({
+  defaults: {
+    templateEngine: 'handlebars'
+  }
+
+});
+
+```
 
 ### Express middleware
 
@@ -334,6 +371,8 @@ Rendr uses the native ECMAScript 5 methods `Array.prototype.map`, `Function.prot
 We'd love to see what the community can come up with! There are no doubt a number of developers who are tackling this same problem, and we can learn from each other. If you have a bug fix or feature proposal, submit a pull request with a clear description of the change, plus tests.
 
 Rendr was originally developed by [@braitz](https://github.com/braitz) and [@spikebrehm](https://github.com/spikebrehm), and now has a healthy list of [contributors](https://github.com/rendrjs/rendr/graphs/contributors).
+
+Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.
 
 ## License
 

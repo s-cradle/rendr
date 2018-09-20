@@ -177,7 +177,7 @@ describe('fetcher', function() {
     });
 
     it("should be able store and hydrate a model", function(done) {
-      var fetchSummary, listing, listing, rawListing, results;
+      var fetchSummary, listing, rawListing, results;
 
       rawListing = {
         id: 9,
@@ -343,6 +343,56 @@ describe('fetcher', function() {
       fetcher.pendingFetches.should.eql(1);
     });
 
+    it("should propagate timeout option to model fetch", function(done) {
+      var timeoutSpy = sinon.spy();
+      var Test = BaseModel.extend({
+        jsonKey: 'timeout',
+        fetch: timeoutSpy
+      });
+      Test.id = 'Timeout';
+      addClassMapping.add('Timeout', Test);
+      var fetchSpec;
+
+      fetchSpec = {
+        model: {
+          model: 'Timeout',
+          params: {
+            id: 1
+          }
+        }
+      };
+
+      fetcher.fetch(fetchSpec, { timeout: 1000 }, function(err, results) { });
+      done();
+
+      timeoutSpy.should.be.calledWith(sinon.match({ timeout: 1000 }))
+    });
+
+    it("should set default timeout to 0 in options to model fetch", function(done) {
+      var timeoutSpy = sinon.spy();
+      var Test = BaseModel.extend({
+        jsonKey: 'timeout',
+        fetch: timeoutSpy
+      });
+      Test.id = 'Timeout';
+      addClassMapping.add('Timeout', Test);
+      var fetchSpec;
+
+      fetchSpec = {
+        model: {
+          model: 'Timeout',
+          params: {
+            id: 1
+          }
+        }
+      };
+
+      fetcher.fetch(fetchSpec, function(err, results) { });
+      done();
+
+      timeoutSpy.should.be.calledWith(sinon.match({ timeout: 0 }))
+    });
+
     it("should be able to fetch a collection", function(done) {
       var fetchSpec;
 
@@ -357,6 +407,94 @@ describe('fetcher', function() {
         if (err) return done(err);
         results.collection.should.be.an.instanceOf(Listings);
         results.collection.toJSON().should.eql(buildCollectionResponse());
+        done();
+      });
+      fetcher.pendingFetches.should.eql(1);
+    });
+
+    it("should be able to fetch a collection normally and from cache", function(done) {
+      var fetchSpec;
+      models = [
+        {
+          id: 1,
+          name: 'foo'
+        }, {
+          id: 2,
+          name: 'bar'
+        }
+      ];
+      params = {
+        some: 'key',
+        other: 'value'
+      };
+      var collectionCached = new Listings(models, {
+        params: params
+      });
+      fetcher.collectionStore.set(collectionCached);
+
+      fetchSpec = {
+        collectionNormal: {
+          collection: 'Listings',
+          readFromCache: false
+        },
+        collectionFetchedCached: {
+          collection: 'Listings',
+          params: params,
+          readFromCache: true
+        }
+      };
+      fetcher.pendingFetches.should.eql(0);
+      fetcher.fetch(fetchSpec, function(err, results) {
+        fetcher.pendingFetches.should.eql(0);
+        if (err) return done(err);
+
+        results.collectionNormal.should.be.an.instanceOf(Listings);
+        results.collectionNormal.toJSON().should.eql(buildCollectionResponse());
+
+        results.collectionFetchedCached.should.be.an.instanceOf(Listings);
+        results.collectionFetchedCached.toJSON().should.eql(models);
+
+        done();
+      });
+      fetcher.pendingFetches.should.eql(1);
+    });
+
+    it("should be able to fetch a model normally and from cache", function(done) {
+      var fetchSpec;
+      var listingAttrs = {
+        id: 'myId',
+        name: 'New Name'
+      };
+      var listingName = new Listing(listingAttrs);
+      fetcher.modelStore.set(listingName);
+
+      fetchSpec = {
+        modelNoCache: {
+          model: 'Listing',
+          params: {
+            id: 1
+          },
+          readFromCache: false
+        },
+        modelCached: {
+          model: 'Listing',
+          params: {
+            id: 'myId'
+          },
+          readFromCache: true
+        }
+      };
+
+      fetcher.pendingFetches.should.eql(0);
+      fetcher.fetch(fetchSpec, function(err, results) {
+        fetcher.pendingFetches.should.eql(0);
+        if (err) return done(err);
+        results.modelNoCache.should.be.an.instanceOf(Listing);
+        results.modelNoCache.toJSON().should.eql(getModelResponse('full', 1));
+
+        results.modelCached.should.be.an.instanceOf(Listing);
+        results.modelCached.toJSON().should.eql(listingAttrs);
+
         done();
       });
       fetcher.pendingFetches.should.eql(1);
@@ -461,6 +599,7 @@ describe('fetcher', function() {
           collection: 'Listings'
         }
       };
+
       fetcher.fetch(fetchSpec, {
         writeToCache: true
       }, function(err, results) {
@@ -469,7 +608,10 @@ describe('fetcher', function() {
         results.collection.toJSON().should.eql(buildCollectionResponse());
 
         // Make sure that the basic version is stored in modelStore.
-        fetcher.modelStore.get('Listing', 1).should.eql(getModelResponse('basic', 1));
+        var model = results.collection.get(1);
+        var storedModel = fetcher.modelStore.get('Listing', 1);
+
+        storedModel.should.eql(model);
 
         // Then, fetch the single model, which should be cached.
         fetchSpec = {
@@ -485,7 +627,7 @@ describe('fetcher', function() {
           readFromCache: true
         }, function(err, results) {
           if (err) return done(err);
-          results.model.toJSON().should.eql(getModelResponse('basic', 1));
+          results.model.should.eql(model);
 
           // Finally, fetch the single model, but specifiy that certain key must be present.
           fetchSpec = {
@@ -497,6 +639,7 @@ describe('fetcher', function() {
               ensureKeys: ['city']
             }
           };
+
           fetcher.fetch(fetchSpec, {
             readFromCache: true
           }, function(err, results) {
@@ -633,55 +776,84 @@ describe('fetcher', function() {
     });
   });
 
-  describe('checkFresh', function() {
-    describe('didCheckFresh', function() {
-      beforeEach(function() {
-        fetcher.checkedFreshTimestamps = {};
-        this.spec = {
-          model: 'foobutt',
-          params: {}
-        };
-      });
+  describe('bootstrapData', function() {
+    var attr, listingModel, bootstrapMockData;
 
-      it("should store it properly", function() {
-        var key;
+    beforeEach(function () {
+      attr = {id: 1, name: 'foobar', location: 'San Francisco'};
+      listingModel = new Listing(attr, {app: this.app});
+      bootstrapMockData = {'model':{'summary':{'model':'user','id':'1'},'data':{'name':'foobar', 'location': 'San Francisco'}}};
+    });
 
-        fetcher.didCheckFresh(this.spec);
-        key = fetcher.checkedFreshKey(this.spec);
-        fetcher.checkedFreshTimestamps[key].should.be.ok;
+    it('should call the callback function', function (done) {
+      var getModelOrCollectionForSpecSpy = sinon.spy(fetcher, 'getModelOrCollectionForSpec');
+
+      var bootstrapData = fetcher.bootstrapData(bootstrapMockData, function(results) {
+        results.should.be.an('object');
+        results.should.have.property('model');
+        results['model'].attributes.should.deep.equal(bootstrapMockData.model.data);
+        done();
       });
     });
 
-    describe('shouldCheckFresh', function() {
-      beforeEach(function() {
-        fetcher.checkedFreshTimestamps = {};
-        this.spec = {
-          model: 'foobutt',
-          params: {}
-        };
-      });
+  });
 
-      it("should return true if timestamp doesn't exist", function() {
-        fetcher.shouldCheckFresh(this.spec).should.be.true;
-      });
+  describe('retrieveModels', function() {
+    var modelAttrs;
 
-      it("should return true if timestamp exists and is greater than 'checkedFreshRate' ago", function() {
-        var key, now;
+    beforeEach(function () {
+      modelAttrs = { id: 1 };
 
-        key = fetcher.checkedFreshKey(this.spec);
-        now = new Date().getTime();
-        fetcher.checkedFreshTimestamps[key] = now - fetcher.checkedFreshRate - 1000;
-        fetcher.shouldCheckFresh(this.spec).should.be.true;
-      });
+      this.expectedModel = new Listing(modelAttrs);
+      fetcher.modelStore.set(this.expectedModel);
+    });
 
-      it("should return false if timestamp exists and is less than 'checkedFreshRate' ago", function() {
-        var key, now;
+    it('should return the models from the given ids', function () {
+      // it should be the exact same model
+      this.expectedModel.should.equal(fetcher.retrieveModels('Listing', [1])[0]);
+      this.expectedModel.should.deep.equal(fetcher.retrieveModels('Listing', [1])[0]);
+    });
+  });
 
-        key = fetcher.checkedFreshKey(this.spec);
-        now = new Date().getTime();
-        fetcher.checkedFreshTimestamps[key] = now - 1;
-        fetcher.shouldCheckFresh(this.spec).should.be.false;
-      });
+  describe('getCollectionForSpec', function () {
+    var spec, params;
+
+    beforeEach(function () {
+      params = { name: 'test' }
+      spec = { collection: 'Listings', params: params };
+    });
+
+    it('the options should include a `params` attribute for the collection store', function () {
+      var result = fetcher.getCollectionForSpec(spec);
+      expect(result.params).to.deep.equal(params);
+      expect(result.options.params).to.deep.equal(params);
+    });
+  });
+
+  describe('fetchFromApi', function(done) {
+    var spec, options, callbackSpy, modelMock;
+
+    beforeEach(function () {
+      spec = { model: 'SomeModel' };
+      options = {readFromCache: false};
+      callbackSpy = sinon.spy();
+      modelMock = {fetch: sinon.spy()};
+    });
+
+    it('should call the getModelOrCollectionForSpec with callback', function (done) {
+      var lastCall, getModelOrCollectionForSpecStub = sinon.stub(fetcher, 'getModelOrCollectionForSpec');
+      getModelOrCollectionForSpecStub.callsArgWith(3, modelMock);
+
+      fetcher.fetchFromApi(spec, options, callbackSpy);
+
+      callbackSpy.should.have.not.been.called;
+
+      getModelOrCollectionForSpecStub.should.have.been.calledOnce;
+      getModelOrCollectionForSpecStub.should.have.been.calledWith(spec, null, options);
+
+      modelMock.fetch.should.have.been.calledOnce;
+
+      done();
     });
   });
 });

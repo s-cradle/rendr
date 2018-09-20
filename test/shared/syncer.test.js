@@ -1,5 +1,6 @@
 var _ = require('underscore'),
     Backbone = require('backbone'),
+    jquery = require('jquery')(require("jsdom").jsdom().parentWindow),
     chai = require('chai'),
     sinon = require('sinon'),
     sinonChai = require('sinon-chai'),
@@ -16,6 +17,9 @@ describe('syncer', function() {
     var model, options, app, request;
 
     beforeEach(function () {
+      this.backboneAjax = Backbone.ajax;
+      Backbone.ajax = jquery.ajax;
+
       request = sinon.stub();
       app = new App();
       app.req = { dataAdapter: { request: request } };
@@ -26,6 +30,10 @@ describe('syncer', function() {
         headers: { foo: 'bar' },
         data: { baz: { quux: 'doh' } }
       };
+    });
+
+    afterEach(function () {
+      Backbone.ajax = this.backboneAjax;
     });
 
     describe('serverSync', function () {
@@ -50,6 +58,24 @@ describe('syncer', function() {
           var expectedRequestOptions = {
             method: 'GET',
             path: '/listings/0',
+            query: { baz: { quux: 'doh' } },
+            headers: { foo: 'bar' },
+            api: 'foo',
+            body: {}
+          };
+
+          syncer.serverSync.call(model, 'read', model, options);
+
+          request.should.have.been.calledOnce;
+          request.should.have.been.calledWith(model.app.req, expectedRequestOptions)
+        });
+
+        it('should encode non-latin param values', function () {
+          model.set('id', 'президент');
+
+          var expectedRequestOptions = {
+            method: 'GET',
+            path: '/listings/%D0%BF%D1%80%D0%B5%D0%B7%D0%B8%D0%B4%D0%B5%D0%BD%D1%82',
             query: { baz: { quux: 'doh' } },
             headers: { foo: 'bar' },
             api: 'foo',
@@ -92,6 +118,24 @@ describe('syncer', function() {
             var expectedRequestOptions = {
               method: 'GET',
               path: '/listings/0',
+              query: { baz: { quux: 'doh' } },
+              headers: { foo: 'bar' },
+              api: 'foo',
+              body: {}
+            };
+
+            syncer.serverSync.call(model, 'read', model, options);
+
+            request.should.have.been.calledOnce;
+            request.should.have.been.calledWith(model.app.req, expectedRequestOptions)
+          });
+
+          it('should encode non-latin param values', function () {
+            model.set('id', 'президент');
+
+            var expectedRequestOptions = {
+              method: 'GET',
+              path: '/listings/%D0%BF%D1%80%D0%B5%D0%B7%D0%B8%D0%B4%D0%B5%D0%BD%D1%82',
               query: { baz: { quux: 'doh' } },
               headers: { foo: 'bar' },
               api: 'foo',

@@ -86,7 +86,7 @@ describe('BaseCollection', function() {
   });
 
   describe('fetch', function() {
-    it("sould store params used", function() {
+    it("should store params used", function() {
       var collection, params;
 
       params = {
@@ -101,6 +101,31 @@ describe('BaseCollection', function() {
         data: params
       });
       params.should.deep.equal(collection.params);
+    });
+
+    context('has default params', function () {
+      beforeEach(function () {
+        BaseCollection.prototype.defaultParams = { 'default': true };
+      });
+
+      afterEach(function () {
+        BaseCollection.prototype.defaultParams = undefined;
+      });
+
+      it('should use the original params if nothing new is set', function () {
+        var collection, opts = {
+          params: { additional: true }
+        };
+
+        collection = new BaseCollection([], opts);
+        collection.sync = function() {};
+        collection.fetch();
+
+        collection.params.should.deep.equal({
+          'additional': true,
+          'default': true
+        });
+      });
     });
   });
 
@@ -175,9 +200,9 @@ describe('BaseCollection', function() {
         app: this.app
       });
       collection.store();
-      models.forEach(function(modelAttrs) {
+      models.forEach(function(modelAttrs, i) {
         var storedModel = _this.app.fetcher.modelStore.get(collection.model.name, modelAttrs.id);
-        storedModel.should.eql(modelAttrs);
+        storedModel.should.eql(collection.models[i]);
       });
       storedCollection = this.app.fetcher.collectionStore.get(this.MyCollection.name, collection.params);
       _.pluck(storedCollection.models, 'id').should.eql(_.pluck(models, 'id'));
