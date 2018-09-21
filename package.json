@@ -18,8 +18,7 @@
     "qs": "~2.2.4",
     "express": "~3",
     "sanitizer": "~0.1",
-    "request": "~2.33.0",
-    "debug": "~3.2.5"
+    "request": "~2.33.0"
   },
   "devDependencies": {
     "mocha": "*",

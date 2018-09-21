@@ -3,7 +3,7 @@ var DataAdapter = require('./index'),
     _ = require('underscore'),
     url = require('url'),
     request = require('request'),
-    debug = require('debug')('rendr:RestAdapter'),
+    //debug = require('debug')('rendr:RestAdapter'),
     util = require('util');
 
 module.exports = RestAdapter;
@@ -71,7 +71,7 @@ RestAdapter.prototype.request = function(req, api, options, callback) {
 
     end = new Date().getTime();
 
-    debug('%s %s %s %sms', api.method.toUpperCase(), api.url, response.statusCode, end - start);
+    // debug('%s %s %s %sms', api.method.toUpperCase(), api.url, response.statusCode, end - start);
 
     /**
      * If specified by options, convert an i.e. 5xx HTTP response to an error.
